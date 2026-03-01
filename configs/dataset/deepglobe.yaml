@@ -1,12 +1,12 @@
 defaults:
   - _self_
 
-name: "massasschussetts-roads"
+name: "deepglobe"
 
 init:
   _target_: src.data.create_data
-  kaggle_dataset: "balraj98/massachusetts-roads-dataset"
-  file_path: "data/massasschussetts-roads"
+  kaggle_dataset: "balraj98/deepglobe-road-extraction-dataset"
+  file_path: "data/deepglobe"
   transforms:
     train:
       _target_: torchvision.transforms.v2.Compose
@@ -25,6 +25,5 @@ init:
       transforms:
         - _target_: torchvision.transforms.v2.Resize
           size: [256, 256]
-
-  image_column: "tiff_image_path"
-  mask_column: "tif_label_path"
+  image_column: "sat_image_path"
+  mask_column: "mask_path"
