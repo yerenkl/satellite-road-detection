@@ -2,7 +2,7 @@ from torch import nn
 import torch
 
 class Unet(nn.Module):
-    def __init__(self, n_class):
+    def __init__(self):
         super().__init__()
         
         self.encoder = nn.ModuleList()
@@ -38,6 +38,9 @@ class Unet(nn.Module):
             self.conv_block(128, 64, n_convs=3)
         ])
         
+        # Final output layer
+        self.output = nn.Conv2d(64, 1, kernel_size=1)
+            
     def conv_block(self, in_ch, out_ch, n_convs=2):
         layers = []
         for i in range(n_convs):
@@ -58,11 +61,13 @@ class Unet(nn.Module):
             x = up(x)
             x = torch.cat([x, skip], dim=1)
             x = dec(x)
+        
+        x = self.output(x)
         return x 
     
         
 if __name__ == "__main__":
-    model = Unet(1)
+    model = Unet()
     x = torch.randn(1, 3, 256, 256)
     out = model(x)
     print(out.shape)

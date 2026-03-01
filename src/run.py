@@ -5,7 +5,8 @@ import torch
 from omegaconf import OmegaConf
 import os
 from src.utils import seed_everything
-
+from src.trainer import combined_loss
+from torch.utils.data import DataLoader
 
 @hydra.main(
     config_path="../configs/",
@@ -23,35 +24,62 @@ def main(cfg):
 
     seed_everything(cfg.seed, cfg.force_deterministic)
 
-    # logger = hydra.utils.instantiate(cfg.logger)
-    # hparams = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
-    # logger.init_run(hparams)
+    if cfg.logger.disable == False:
+        logger = hydra.utils.instantiate(cfg.logger)
+        hparams = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+        logger.init_run(hparams)
 
-    hydra.utils.instantiate(cfg.dataset.init)
-    # if cfg.trainer.method == "ncps-train":
-    #     # Use multiple models (4 unless overridden)
-    #     num_models = cfg.trainer.num_models
+    train_data, val_data, _ = hydra.utils.instantiate(cfg.dataset.init)
 
-    #     for _ in range(num_models):
-    #         model = hydra.utils.instantiate(cfg.model.init).to(device)
-    #         if cfg.compile_model:
-    #             model = torch.compile(model)
-    #         models_list.append(model)
+    train_loader = DataLoader(
+        train_data,
+        batch_size=cfg.training.batch_size,
+        shuffle=True,
+        num_workers=cfg.training.num_workers,
+        pin_memory=True if device.type == "cuda" else False
+    )
+    
+    val_loader = DataLoader(
+        val_data,
+        batch_size=cfg.training.batch_size,
+        shuffle=False,
+        num_workers=cfg.training.num_workers,
+        pin_memory=True if device.type == "cuda" else False
+    )
 
-    # else:
-    #     # Normal single model
-    #     model = hydra.utils.instantiate(cfg.model.init).to(device)
-    #     if cfg.compile_model:
-    #         model = torch.compile(model)
-    #     models_list = [model]
-        
-    # if cfg.compile_model:
-    #     model = torch.compile(model)
-    # models = models_list
-    # trainer = hydra.utils.instantiate(cfg.trainer.init, models=models, logger=logger, datamodule=dm, device=device)
+    model = hydra.utils.instantiate(cfg.model.init).to(device)
 
-    # results = trainer.train(**cfg.trainer.train)
-    # results = torch.Tensor(results)
+    # Print model summary
+    print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
+
+    # Create optimizer
+    optimizer = hydra.utils.instantiate(
+        cfg.training.optimizer,
+        params=model.parameters()
+    )
+
+    # Create scheduler
+    scheduler = None
+    if hasattr(cfg.training, 'scheduler') and cfg.training.scheduler is not None:
+        scheduler = hydra.utils.instantiate(
+            cfg.training.scheduler,
+            optimizer=optimizer
+        )
+
+    bce_weight = cfg.training.get('bce_weight', 0.5)
+    criterion = lambda pred, target: combined_loss(pred, target, bce_weight=bce_weight)
+    
+    trainer = hydra.utils.instantiate(cfg.trainer.init, model=model, logger=logger, device=device, 
+                                        criterion=criterion,
+                                        scheduler=scheduler,
+                                        train_loader=train_loader, 
+                                        val_loader=val_loader, 
+                                        optimizer=optimizer)
+
+    results = trainer.train(**cfg.trainer.train)
+    print(f"\nFinal Results: {results}")
+    
+    return results
 
 
 

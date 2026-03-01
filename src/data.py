@@ -59,7 +59,7 @@ def create_data(kaggle_dataset: str, file_path: str, transforms: dict, image_col
     plt.show()
     plt.close()
     
-    return train_data, test_data, val_data
+    return train_data, val_data, test_data
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, dataset_path, transform, split="train", image_column=None, mask_column=None, has_labels=True):
