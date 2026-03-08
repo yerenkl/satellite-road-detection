@@ -64,8 +64,7 @@ def main(cfg):
             optimizer=optimizer
         )
 
-    bce_weight = cfg.training.get('bce_weight', 0.5)
-    criterion = lambda pred, target: combined_loss(pred, target, bce_weight=bce_weight)
+    criterion = hydra.utils.instantiate(cfg.training.loss)
     
     trainer = hydra.utils.instantiate(cfg.trainer.init, model=model, logger=logger, device=device, 
                                         criterion=criterion,
