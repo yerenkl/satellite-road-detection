@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 import wandb
-from typing import Optional
-
+from monai.metrics import DiceMetric, MeanIoU, ConfusionMatrixMetric
+from monai.transforms import Activations, AsDiscrete, Compose
 
 def dice_loss(pred, target, smooth=1e-6):
     """Dice loss for binary segmentation."""
@@ -20,16 +20,6 @@ def combined_loss(pred, target, bce_weight=0.5):
     bce = nn.BCEWithLogitsLoss()(pred, target)
     dice = dice_loss(pred, target)
     return bce_weight * bce + (1 - bce_weight) * dice
-
-
-def iou_score(pred, target, threshold=0.5):
-    """Calculate IoU (Intersection over Union) score."""
-    pred = (torch.sigmoid(pred) > threshold).float()
-    intersection = (pred * target).sum(dim=(2, 3))
-    union = pred.sum(dim=(2, 3)) + target.sum(dim=(2, 3)) - intersection
-    iou = (intersection + 1e-6) / (union + 1e-6)
-    return iou.mean()
-
 
 class Trainer:
     """Trainer class for semantic segmentation."""
@@ -62,6 +52,21 @@ class Trainer:
         # Track best model
         self.best_iou = 0.0
         self.best_epoch = 0
+
+        self.dice_metric = DiceMetric(include_background=True, reduction="mean")
+        self.iou_metric = MeanIoU(include_background=True, reduction="mean")
+
+        self.conf_metric = ConfusionMatrixMetric(
+            metric_name=["f1 score", "precision", "sensitivity"],
+            include_background=True,
+            reduction="mean"
+        )
+
+        self.post_pred = Compose([
+            Activations(sigmoid=True),  # convert logits to probabilities
+            AsDiscrete(threshold=0.5)   # convert probabilities to 0/1
+        ])
+        self.post_label = AsDiscrete(threshold=0.5)  # binarize the labels
     
     def train_epoch(self, epoch):
         """Train for one epoch."""
@@ -84,18 +89,18 @@ class Trainer:
             # Backward pass
             loss.backward()
             self.optimizer.step()
-            
-            # Calculate metrics
-            with torch.no_grad():
-                iou = iou_score(outputs, masks)
+
+            preds = self.post_pred(outputs)
+            labels = self.post_label(masks)
+
+            self.dice_metric(preds, labels)
+            self.iou_metric(preds, labels)
+            self.conf_metric(preds, labels)
             
             total_loss += loss.item()
-            total_iou += iou.item()
-            
-            # Update progress bar
+        
             pbar.set_postfix({
-                'loss': f'{loss.item():.4f}',
-                'iou': f'{iou.item():.4f}'
+                'loss': f'{loss.item():.4f}'
             })
             
             # Log to wandb
@@ -105,9 +110,15 @@ class Trainer:
                 })
         
         avg_loss = total_loss / len(self.train_loader)
-        avg_iou = total_iou / len(self.train_loader)
-        
-        return avg_loss, avg_iou
+        dice = self.dice_metric.aggregate().item()
+        iou = self.iou_metric.aggregate().item()
+        conf = self.conf_metric.aggregate()
+
+        self.dice_metric.reset()
+        self.iou_metric.reset()
+        self.conf_metric.reset()
+    
+        return avg_loss, dice, iou, conf
     
     def validate(self, epoch):
         """Validate the model."""
@@ -126,29 +137,42 @@ class Trainer:
                 
                 # Compute loss and metrics
                 loss = self.criterion(outputs, masks)
-                iou = iou_score(outputs, masks)
+                
+                preds = self.post_pred(outputs)
+                labels = self.post_label(masks)
+
+                self.dice_metric(preds, labels)
+                self.iou_metric(preds, labels)
+                self.conf_metric(preds, labels)
                 
                 total_loss += loss.item()
-                total_iou += iou.item()
                 
                 # Update progress bar
                 pbar.set_postfix({
-                    'loss': f'{loss.item():.4f}',
-                    'iou': f'{iou.item():.4f}'
+                    'loss': f'{loss.item():.4f}'
                 })
         
         avg_loss = total_loss / len(self.val_loader)
-        avg_iou = total_iou / len(self.val_loader)
+        dice = self.dice_metric.aggregate().item()
+        iou = self.iou_metric.aggregate().item()
+        conf = self.conf_metric.aggregate()
+        self.dice_metric.reset()
+        self.iou_metric.reset()
+        self.conf_metric.reset()
         
         # Log to wandb
         if self.logger and not self.logger.disable:
             wandb.log({
                 'val/loss': avg_loss,
-                'val/iou': avg_iou,
+                'val/iou': iou,
+                'val/dice': dice,
+                'val/f1': conf[0].item(),
+                'val/precision': conf[1].item(),
+                'val/sensitivity': conf[2].item(),
                 'val/epoch': epoch
             })
         
-        return avg_loss, avg_iou
+        return avg_loss, dice, iou, conf
     
     def save_best_model(self, val_iou):
         """Save best model state dict."""
@@ -172,12 +196,12 @@ class Trainer:
             print(f"{'-'*60}")
             
             # Train
-            train_loss, train_iou = self.train_epoch(epoch)
-            print(f"Train - Loss: {train_loss:.4f}, IoU: {train_iou:.4f}")
+            train_loss, train_dice, train_iou, train_conf = self.train_epoch(epoch)
+            print(f"Train - Loss: {train_loss:.4f}, Dice: {train_dice:.4f}, IoU: {train_iou:.4f}")
             
             # Validate
-            val_loss, val_iou = self.validate(epoch)
-            print(f"Val   - Loss: {val_loss:.4f}, IoU: {val_iou:.4f}")
+            val_loss, val_dice, val_iou, val_conf = self.validate(epoch)
+            print(f"Val   - Loss: {val_loss:.4f}, Dice: {val_dice:.4f}, IoU: {val_iou:.4f}")
             
             # Update learning rate
             if self.scheduler is not None:
