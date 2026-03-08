@@ -1,0 +1,5 @@
+name: Linknet34
+
+init:
+  _target_: src.models.linknet.LinkNet34
+  num_classes: 1

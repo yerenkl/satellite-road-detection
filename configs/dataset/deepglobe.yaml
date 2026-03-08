@@ -11,19 +11,19 @@ init:
       _target_: torchvision.transforms.v2.Compose
       transforms:
         - _target_: torchvision.transforms.v2.Resize
-          size: [256, 256]
+          size: [1024, 1024]
         - _target_: torchvision.transforms.v2.RandomHorizontalFlip
           p: 0.5
     val:
       _target_: torchvision.transforms.v2.Compose
       transforms:
         - _target_: torchvision.transforms.v2.Resize
-          size: [256, 256]
+          size: [1024, 1024]
     test:
       _target_: torchvision.transforms.v2.Compose
       transforms:
         - _target_: torchvision.transforms.v2.Resize
-          size: [256, 256]
+          size: [1024, 1024]
   image_column: "sat_image_path"
   mask_column: "mask_path"
   train_split: 0.8

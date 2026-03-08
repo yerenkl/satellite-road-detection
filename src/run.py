@@ -1,10 +1,45 @@
 import hydra
 import torch
+import csv
+from datetime import datetime
 from omegaconf import OmegaConf
 import os
 from src.utils import seed_everything
-from src.trainer import combined_loss
 from torch.utils.data import DataLoader
+
+
+def save_results_to_csv(cfg, results, csv_path="results/experiment_results.csv"):
+    """Append training results to a CSV file."""
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    
+    file_exists = os.path.exists(csv_path)
+    
+    row = {
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'model': cfg.model.name,
+        'dataset': cfg.dataset.name,
+        'epochs': cfg.training.epochs,
+        'batch_size': cfg.training.batch_size,
+        'lr': cfg.training.optimizer.lr,
+        'seed': cfg.seed,
+        'best_epoch': results.get('best_epoch', ''),
+        'best_iou': results.get('best_iou', ''),
+        'final_train_loss': results.get('final_train_loss', ''),
+        'final_train_dice': results.get('final_train_dice', ''),
+        'final_train_iou': results.get('final_train_iou', ''),
+        'final_val_loss': results.get('final_val_loss', ''),
+        'final_val_dice': results.get('final_val_dice', ''),
+        'final_val_iou': results.get('final_val_iou', ''),
+    }
+    
+    with open(csv_path, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=row.keys())
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
+    
+    print(f"Results saved to {csv_path}")
+
 
 @hydra.main(
     config_path="../configs/",
@@ -75,6 +110,9 @@ def main(cfg):
 
     results = trainer.train(**cfg.trainer.train)
     print(f"\nFinal Results: {results}")
+    
+    # Save results to CSV
+    save_results_to_csv(cfg, results)
     
     return results
 

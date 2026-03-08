@@ -3,7 +3,7 @@ defaults:
 
 _target_: src.logger.WandBLogger
 group: ${dataset.name} # Name of the group for wandb
-name: ${model.name}_seed=${seed} # Name of the run for wandb
+name: ${model.name}_${dataset.name} # Name of the run for wandb
 job_type: test
 entity: yerenkl-danmarks-tekniske-universitet-dtu
 project_name: satellite-road-detection-project

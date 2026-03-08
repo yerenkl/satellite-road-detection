@@ -6,21 +6,6 @@ import wandb
 from monai.metrics import DiceMetric, MeanIoU, ConfusionMatrixMetric
 from monai.transforms import Activations, AsDiscrete, Compose
 
-def dice_loss(pred, target, smooth=1e-6):
-    """Dice loss for binary segmentation."""
-    pred = torch.sigmoid(pred)
-    intersection = (pred * target).sum(dim=(2, 3))
-    union = pred.sum(dim=(2, 3)) + target.sum(dim=(2, 3))
-    dice = (2. * intersection + smooth) / (union + smooth)
-    return 1 - dice.mean()
-
-
-def combined_loss(pred, target, bce_weight=0.5):
-    """Combined BCE and Dice loss."""
-    bce = nn.BCEWithLogitsLoss()(pred, target)
-    dice = dice_loss(pred, target)
-    return bce_weight * bce + (1 - bce_weight) * dice
-
 class Trainer:
     """Trainer class for semantic segmentation."""
     
@@ -206,7 +191,7 @@ class Trainer:
             # Update learning rate
             if self.scheduler is not None:
                 if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                    self.scheduler.step(val_iou)
+                    self.scheduler.step(val_loss) 
                 else:
                     self.scheduler.step()
                 
@@ -226,6 +211,7 @@ class Trainer:
             if self.logger and not self.logger.disable:
                 wandb.log({
                     'train/epoch_loss': train_loss,
+                    'train/epoch_dice': train_dice,
                     'train/epoch_iou': train_iou,
                     'epoch': epoch
                 })
@@ -239,7 +225,9 @@ class Trainer:
             'best_iou': self.best_iou,
             'best_epoch': self.best_epoch,
             'final_train_loss': train_loss,
+            'final_train_dice': train_dice,
             'final_train_iou': train_iou,
             'final_val_loss': val_loss,
+            'final_val_dice': val_dice,
             'final_val_iou': val_iou
         }
