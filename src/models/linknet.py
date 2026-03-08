@@ -97,7 +97,7 @@ class LinkNet34(nn.Module):
         f5 = self.finalconv3(f4)
 
         # return f5 
-        return F.sigmoid(f5)
+        return f5
 
 class LinkNet50(nn.Module):
     def __init__(self, num_classes, num_channels=3):
@@ -156,7 +156,7 @@ class LinkNet50(nn.Module):
         f4 = self.finalrelu2(f3)
         f5 = self.finalconv3(f4)
 
-        return F.sigmoid(f5)
+        return f5
 
 class LinkNet50_full(nn.Module):
     def __init__(self, num_classes, num_channels=3):
@@ -219,4 +219,4 @@ class LinkNet50_full(nn.Module):
         f4 = self.finalrelu2(f3)
         f5 = self.finalconv3(f4)
 
-        return F.sigmoid(f5)        
+        return f5       

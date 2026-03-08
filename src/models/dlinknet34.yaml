@@ -1,4 +1,0 @@
-name: dlinknet34
-
-init:
-  _target_: src.models.dlinknet.DinkNet34
