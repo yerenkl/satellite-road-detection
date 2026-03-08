@@ -2,7 +2,7 @@ defaults:
   - _self_
 
 _target_: src.logger.WandBLogger
-group: ${dataset.dataset_name} # Name of the group for wandb
+group: ${dataset.name} # Name of the group for wandb
 name: ${model.name}_seed=${seed} # Name of the run for wandb
 job_type: test
 entity: yerenkl-danmarks-tekniske-universitet-dtu

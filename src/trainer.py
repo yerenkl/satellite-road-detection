@@ -44,8 +44,7 @@ class Trainer:
         device,
         logger=None,
         scheduler=None,
-        result_dir="./results",
-        save_every=10
+        result_dir="./results"
     ):
         self.model = model
         self.optimizer = optimizer
@@ -56,7 +55,6 @@ class Trainer:
         self.logger = logger
         self.scheduler = scheduler
         self.result_dir = result_dir
-        self.save_every = save_every
         
         # Create results directory
         os.makedirs(self.result_dir, exist_ok=True)
@@ -103,8 +101,6 @@ class Trainer:
             # Log to wandb
             if self.logger and not self.logger.disable:
                 wandb.log({
-                    'train/batch_loss': loss.item(),
-                    'train/batch_iou': iou.item(),
                     'train/step': epoch * len(self.train_loader) + batch_idx
                 })
         
@@ -154,55 +150,24 @@ class Trainer:
         
         return avg_loss, avg_iou
     
-    def save_checkpoint(self, epoch, val_iou, val_loss, is_best=False):
-        """Save model checkpoint."""
-        checkpoint = {
-            'epoch': epoch,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'val_iou': val_iou,
-            'val_loss': val_loss,
-            'best_iou': self.best_iou
-        }
-        
-        if self.scheduler is not None:
-            checkpoint['scheduler_state_dict'] = self.scheduler.state_dict()
-        
-        if is_best:
-            path = os.path.join(self.result_dir, 'best_model.pth')
-            torch.save(checkpoint, path)
-            print(f"✓ Saved best model (IoU: {val_iou:.4f})")
-        else:
-            path = os.path.join(self.result_dir, f'checkpoint_epoch_{epoch}.pth')
-            torch.save(checkpoint, path)
-            print(f"✓ Saved checkpoint at epoch {epoch}")
+    def save_best_model(self, val_iou):
+        """Save best model state dict."""
+        path = os.path.join(self.result_dir, 'best_model.pth')
+        torch.save(self.model.state_dict(), path)
+        print(f"Saved best model (IoU: {val_iou:.4f})")
     
-    def load_checkpoint(self, checkpoint_path):
-        """Load model checkpoint."""
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        
-        if self.scheduler is not None and 'scheduler_state_dict' in checkpoint:
-            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        
-        self.best_iou = checkpoint.get('best_iou', 0.0)
-        
-        return checkpoint['epoch']
+    def load_model(self, checkpoint_path):
+        """Load model state dict."""
+        state_dict = torch.load(checkpoint_path, map_location=self.device)
+        self.model.load_state_dict(state_dict)
+        print(f"Loaded model from {checkpoint_path}")
     
-    def train(self, epochs, resume_from=None):
+    def train(self, epochs):
         """Main training loop."""
-        start_epoch = 1
-        
-        # Resume from checkpoint if specified
-        if resume_from:
-            start_epoch = self.load_checkpoint(resume_from) + 1
-            print(f"Resuming from epoch {start_epoch}")
-        
         print(f"\nStarting training for {epochs} epochs...")
         print(f"{'='*60}")
         
-        for epoch in range(start_epoch, epochs + 1):
+        for epoch in range(1, epochs + 1):
             print(f"\nEpoch {epoch}/{epochs}")
             print(f"{'-'*60}")
             
@@ -231,11 +196,7 @@ class Trainer:
             if val_iou > self.best_iou:
                 self.best_iou = val_iou
                 self.best_epoch = epoch
-                self.save_checkpoint(epoch, val_iou, val_loss, is_best=True)
-            
-            # Save periodic checkpoint
-            if epoch % self.save_every == 0:
-                self.save_checkpoint(epoch, val_iou, val_loss, is_best=False)
+                self.save_best_model(val_iou)
             
             # Log epoch metrics
             if self.logger and not self.logger.disable:

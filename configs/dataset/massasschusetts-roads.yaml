@@ -4,8 +4,7 @@ defaults:
 name: "massasschussetts-roads"
 
 init:
-  _target_: src.data.create_data
-  kaggle_dataset: "balraj98/massachusetts-roads-dataset"
+  _target_: src.datasets.data_massachusetts.create_data
   file_path: "data/massasschussetts-roads"
   transforms:
     train:

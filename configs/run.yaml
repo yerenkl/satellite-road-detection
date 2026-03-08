@@ -2,6 +2,7 @@ defaults:
   - dataset: massasschusetts-roads
   - logger: wandb
   - model: unet
+  - trainer: default
   - _self_
 
 
@@ -9,5 +10,25 @@ seed: 42 # Random seed
 device: cuda # Device to use (cuda or cpu) if unset will use cuda if available
 force_deterministic: False # Force deterministic algorithms
 debug_mode: False # Debug mode
-result_dir: ./results
+result_dir: ./results/${dataset.name}_${model.name}_${now:%Y-%m-%d_%H-%M-%S} # Directory to save results
 dataset_dir: ./data
+
+training:
+  epochs: 50
+  batch_size: 8
+  num_workers: 4
+  compile_model: False
+  bce_weight: 0.5  # Weight for BCE in combined loss
+  
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.001
+    weight_decay: 0.0001
+  
+  # Optional: uncomment to use learning rate scheduler
+  # scheduler:
+  #   _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  #   mode: max
+  #   factor: 0.5
+  #   patience: 5
+  #   verbose: True
