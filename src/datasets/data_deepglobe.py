@@ -31,19 +31,17 @@ def create_data(file_path: str, transforms: dict, image_column: str, mask_column
         generator=generator
     )
 
-    # Train dataset with augmentation
+    # Provided validation set doesn't have labels so I use the training set for both train and val
     train_data = Subset(
         Dataset(data_path, transforms["train"], "train", image_column, mask_column),
         train_indices.indices
     )
 
-    # Validation dataset WITHOUT augmentation
     val_data = Subset(
         Dataset(data_path, transforms["test"], "train", image_column, mask_column),
         val_indices.indices
     )
 
-    # Test data without labels
     test_data = Dataset(data_path, transform=transforms['test'], split="test", image_column=image_column, mask_column=mask_column, has_labels=False)
     
     print(f"DeepGlobe dataset sizes - Train: {len(train_data)}, Val: {len(val_data)}, Test: {len(test_data)}")
