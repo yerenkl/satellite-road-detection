@@ -6,3 +6,4 @@ init:
 
 train:
   epochs: ${training.epochs}
+  resume_from: null  # Path to checkpoint.pth to resume training

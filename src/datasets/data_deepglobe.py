@@ -1,6 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 from torch.utils.data import random_split, Subset
+from torch import Generator
 from src.datasets.dataset_utils import download_data, unnormalize, Dataset  
 
 def create_data(file_path: str, transforms: dict, image_column: str, mask_column: str, train_split: float):
@@ -20,10 +21,14 @@ def create_data(file_path: str, transforms: dict, image_column: str, mask_column
     # Split train into train and val
     train_size = int(train_split * len(full_data))
     val_size = len(full_data) - train_size
+
+    generator = Generator().manual_seed(42)
+
     
     train_indices, val_indices = random_split(
         range(len(full_data)),
-        [train_size, val_size]
+        [train_size, val_size],
+        generator=generator
     )
 
     # Train dataset with augmentation

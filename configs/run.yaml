@@ -18,7 +18,6 @@ training:
   batch_size: 4
   num_workers: 4
   compile_model: False
-  bce_weight: 0.5  # Weight for BCE in combined loss
   
   optimizer:
     _target_: torch.optim.Adam

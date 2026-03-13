@@ -50,6 +50,12 @@ def main(cfg):
     os.environ["HYDRA_FULL_ERROR"]='1'
     print(OmegaConf.to_yaml(cfg))
 
+    # If resuming training, use the checkpoint's directory as result_dir
+    if cfg.trainer.train.resume_from:
+        resume_dir = os.path.dirname(cfg.trainer.train.resume_from)
+        cfg.result_dir = resume_dir
+        print(f"Resuming training - using result_dir: {resume_dir}")
+
     if cfg.device in ["unset", "auto"]:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:

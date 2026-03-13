@@ -1,6 +1,5 @@
 import os
 import torch
-import torch.nn as nn
 from tqdm import tqdm
 import wandb
 from monai.metrics import DiceMetric, MeanIoU, ConfusionMatrixMetric
@@ -141,6 +140,7 @@ class Trainer:
         dice = self.dice_metric.aggregate().item()
         iou = self.iou_metric.aggregate().item()
         conf = self.conf_metric.aggregate()
+
         self.dice_metric.reset()
         self.iou_metric.reset()
         self.conf_metric.reset()
@@ -165,18 +165,50 @@ class Trainer:
         torch.save(self.model.state_dict(), path)
         print(f"Saved best model (IoU: {val_iou:.4f})")
     
+    def save_checkpoint(self, epoch, val_iou):
+        """Save full training checkpoint for resuming."""
+        checkpoint = {
+            'epoch': epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
+            'best_iou': self.best_iou,
+            'best_epoch': self.best_epoch,
+            'val_iou': val_iou,
+        }
+        path = os.path.join(self.result_dir, 'checkpoint.pth')
+        torch.save(checkpoint, path)
+        print(f"Saved checkpoint at epoch {epoch}")
+    
+    def load_checkpoint(self, checkpoint_path):
+        """Load training checkpoint to resume training."""
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        if self.scheduler and checkpoint['scheduler_state_dict']:
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        self.best_iou = checkpoint['best_iou']
+        self.best_epoch = checkpoint['best_epoch']
+        start_epoch = checkpoint['epoch']
+        print(f"Resumed from checkpoint at epoch {start_epoch} (best IoU: {self.best_iou:.4f})")
+        return start_epoch
+    
     def load_model(self, checkpoint_path):
         """Load model state dict."""
         state_dict = torch.load(checkpoint_path, map_location=self.device)
         self.model.load_state_dict(state_dict)
         print(f"Loaded model from {checkpoint_path}")
     
-    def train(self, epochs):
-        """Main training loop."""
-        print(f"\nStarting training for {epochs} epochs...")
+    def train(self, epochs, resume_from=None):
+        start_epoch = 1
+        if resume_from:
+            start_epoch = self.load_checkpoint(resume_from) + 1
+            print(f"Continuing training from epoch {start_epoch}")
+        
+        print(f"\nStarting training for {epochs} epochs (from epoch {start_epoch})...")
         print(f"{'='*60}")
         
-        for epoch in range(1, epochs + 1):
+        for epoch in range(start_epoch, epochs + 1):
             print(f"\nEpoch {epoch}/{epochs}")
             print(f"{'-'*60}")
             
@@ -206,6 +238,9 @@ class Trainer:
                 self.best_iou = val_iou
                 self.best_epoch = epoch
                 self.save_best_model(val_iou)
+            
+            # Save checkpoint for resuming
+            self.save_checkpoint(epoch, val_iou)
             
             # Log epoch metrics
             if self.logger and not self.logger.disable:
