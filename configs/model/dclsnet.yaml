@@ -1,0 +1,4 @@
+name: dclsnet
+
+init:
+  _target_: src.models.dclsnet.Dclsnet
