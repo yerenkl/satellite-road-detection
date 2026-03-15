@@ -15,13 +15,14 @@ def create_data(file_path: str, transforms: dict, image_column: str, mask_column
     else:
         data_path = file_path
 
-    # Load all training data (which has labels)
+    # Load all training data
     full_data = Dataset(data_path, None, split="train", image_column=image_column, mask_column=mask_column)
     
     # Split train into train and val
     train_size = int(train_split * len(full_data))
     val_size = len(full_data) - train_size
 
+    # Fixed seed
     generator = Generator().manual_seed(42)
 
     
