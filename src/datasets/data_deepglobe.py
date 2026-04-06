@@ -4,7 +4,7 @@ from torch.utils.data import random_split, Subset
 from torch import Generator
 from src.datasets.dataset_utils import download_data, unnormalize, Dataset  
 
-def create_data(file_path: str, transforms: dict, image_column: str, mask_column: str, train_split: float):
+def create_data(file_path: str, transforms: dict, image_column: str, mask_column: str, train_split: float, val_split: float = 0.1, test_split: float = 0.2):
     """
     Create datasets for DeepGlobe.
     Since DeepGlobe doesn't have labels in val/test, we split the train set into train/val.
@@ -20,15 +20,16 @@ def create_data(file_path: str, transforms: dict, image_column: str, mask_column
     
     # Split train into train and val
     train_size = int(train_split * len(full_data))
-    val_size = len(full_data) - train_size
+    val_size = int(val_split * len(full_data))
+    test_size = len(full_data) - train_size - val_size
 
     # Fixed seed
     generator = Generator().manual_seed(42)
 
     
-    train_indices, val_indices = random_split(
+    train_indices, val_indices, test_indices = random_split(
         range(len(full_data)),
-        [train_size, val_size],
+        [train_size, val_size, test_size],
         generator=generator
     )
 
@@ -39,12 +40,15 @@ def create_data(file_path: str, transforms: dict, image_column: str, mask_column
     )
 
     val_data = Subset(
-        Dataset(data_path, transforms["test"], "train", image_column, mask_column),
+        Dataset(data_path, transforms["val"], "train", image_column, mask_column),
         val_indices.indices
     )
 
-    test_data = Dataset(data_path, transform=transforms['test'], split="test", image_column=image_column, mask_column=mask_column, has_labels=False)
-    
+    test_data = Subset(
+        Dataset(data_path, transforms["test"], "test", image_column, mask_column),
+        test_indices.indices
+    )
+
     print(f"DeepGlobe dataset sizes - Train: {len(train_data)}, Val: {len(val_data)}, Test: {len(test_data)}")
     
     fig, axes = plt.subplots(2, 5, figsize=(20, 8))

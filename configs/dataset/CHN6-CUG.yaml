@@ -1,0 +1,26 @@
+defaults:
+  - _self_
+
+name: "CHN6-CUG"
+
+init:
+  _target_: src.datasets.data_chn6.create_data
+  file_path: "data/CHN6-CUG"
+  transforms:
+    train:
+      _target_: torchvision.transforms.v2.Compose
+      transforms:
+        - _target_: torchvision.transforms.v2.Resize
+          size: [512, 512]
+        - _target_: torchvision.transforms.v2.RandomHorizontalFlip
+          p: 0.5
+    val:
+      _target_: torchvision.transforms.v2.Compose
+      transforms:
+        - _target_: torchvision.transforms.v2.Resize
+          size: [512, 512]
+    test:
+      _target_: torchvision.transforms.v2.Compose
+      transforms:
+        - _target_: torchvision.transforms.v2.Resize
+          size: [512, 512]

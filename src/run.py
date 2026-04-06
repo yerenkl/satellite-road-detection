@@ -68,7 +68,8 @@ def main(cfg):
         hparams = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
         logger.init_run(hparams)
 
-    train_data, val_data, _ = hydra.utils.instantiate(cfg.dataset.init)
+    dataset_result = hydra.utils.instantiate(cfg.dataset.init)
+    train_data, val_data = dataset_result[0], dataset_result[1]
 
     train_loader = DataLoader(
         train_data,
